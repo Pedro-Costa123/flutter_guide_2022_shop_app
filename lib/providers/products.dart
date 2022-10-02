@@ -45,8 +45,9 @@ class Products with ChangeNotifier {
   // var _showFavoritesOnly = false;
 
   final String authToken;
+  final String userId;
 
-  Products(this.authToken, this._items);
+  Products(this.authToken, this.userId ,this._items);
 
   List<Product> get items {
     // if(_showFavoritesOnly) {
@@ -63,14 +64,18 @@ class Products with ChangeNotifier {
     return _items.firstWhere((prod) => prod.id == id);
   }
 
-  Future<void> fetchAndSetProducts() async {
-    var url = dotenv.env['URLPRODUCTS'] + '?auth=' + authToken;
+  Future<void> fetchAndSetProducts([bool filterByUser = false]) async {
+    final filterString = filterByUser ? 'orderBy="creatorId"&equalTo="$userId"' : "";
+    var url = dotenv.env['URLPRODUCTS'] + '?auth=' + authToken + '&' + filterString;
     try {
       final response = await http.get(url);
       final extractedData = json.decode(response.body) as Map<String, dynamic>;
       if (extractedData == null) {
         return;
       }
+      url = dotenv.env['URLPRODUCTSUSER'] + userId + '.json' + '?auth=' + authToken;
+      final favoriteResponse = await http.get(url);
+      final favoriteData = json.decode(favoriteResponse.body);
       final List<Product> loadedProducts = [];
       extractedData.forEach(
         (prodId, prodData) {
@@ -81,7 +86,7 @@ class Products with ChangeNotifier {
               description: prodData['description'],
               price: prodData['price'],
               imageUrl: prodData['imageUrl'],
-              isFavorite: prodData['isFavorite'],
+              isFavorite: favoriteData == null ? false : favoriteData[prodId] ?? false,
             ),
           );
         },
@@ -104,7 +109,7 @@ class Products with ChangeNotifier {
             'description': product.description,
             'imageUrl': product.imageUrl,
             'price': product.price,
-            'isFavorite': product.isFavorite,
+            'creatorId': userId,
           },
         ),
       );
